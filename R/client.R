@@ -72,8 +72,8 @@
 #' }
 #' @rdname client
 #' @export
-get_personal_onedrive <- function(app=.microsoft365r_app_id,
-                                  scopes=c("Files.ReadWrite.All", "User.Read"),
+get_personal_onedrive <- function(app = .microsoft365r_app_id,
+                                  scopes = c("Files.ReadWrite.All", "User.Read"),
                                   ...)
 {
     do_login("consumers", app, scopes, ...)$get_user()$get_drive()
@@ -81,104 +81,124 @@ get_personal_onedrive <- function(app=.microsoft365r_app_id,
 
 #' @rdname client
 #' @export
-get_business_onedrive <- function(tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                                  app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                                  scopes=c("Files.ReadWrite.All", "User.Read"),
-                                  ...)
-{
-    app <- choose_app(app)
-    scopes <- set_default_scopes(scopes, app)
-    do_login(tenant, app, scopes, ...)$get_user()$get_drive()
-}
-
-#' @rdname client
-#' @export
-get_sharepoint_site <- function(site_name=NULL, site_url=NULL, site_id=NULL,
-                                tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                                app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                                scopes=c("Group.ReadWrite.All", "Directory.Read.All",
-                                         "Sites.ReadWrite.All", "Sites.Manage.All"),
-                                ...)
-{
-    assert_one_arg(site_name, site_url, site_id, msg="Supply exactly one of site name, URL or ID")
-    app <- choose_app(app)
-    scopes <- set_default_scopes(scopes, app)
-    login <- do_login(tenant, app, scopes, ...)
-
-    if(!is.null(site_name))
+get_business_onedrive <-
+    function(tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+             scopes = c("Files.ReadWrite.All", "User.Read"),
+             ...)
     {
-        filter <- sprintf("displayName eq '%s'", site_name)
-        mysites <- login$get_user()$list_sharepoint_sites(filter=filter)
-        if(length(mysites) == 0)
-            stop("Site '", site_name, "' not found", call.=FALSE)
-        else if(length(mysites) > 1)
-            stop("Site name '", site_name, "' is not unique", call.=FALSE)
-        mysites[[1]]
+        app <- choose_app(app)
+        scopes <- set_default_scopes(scopes, app)
+        do_login(tenant, app, scopes, ...)$get_user()$get_drive()
     }
-    else login$get_sharepoint_site(site_url, site_id)
-}
 
 #' @rdname client
 #' @export
-list_sharepoint_sites <- function(tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                                  app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                                  scopes=c("Group.ReadWrite.All", "Directory.Read.All",
-                                           "Sites.ReadWrite.All", "Sites.Manage.All"),
-                                  ...)
-{
-    app <- choose_app(app)
-    scopes <- set_default_scopes(scopes, app)
-    login <- do_login(tenant, app, scopes, ...)
-
-    login$get_user()$list_sharepoint_sites()
-}
+get_sharepoint_site <-
+    function(site_name = NULL,
+             site_url = NULL,
+             site_id = NULL,
+             tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+             scopes = c(
+                 "Group.ReadWrite.All",
+                 "Directory.Read.All",
+                 "Sites.ReadWrite.All",
+                 "Sites.Manage.All"
+             ),
+             ...)
+    {
+        assert_one_arg(site_name, site_url, site_id, msg = "Supply exactly one of site name, URL or ID")
+        app <- choose_app(app)
+        scopes <- set_default_scopes(scopes, app)
+        login <- do_login(tenant, app, scopes, ...)
+        
+        if (!is.null(site_name))
+        {
+            filter <- sprintf("displayName eq '%s'", site_name)
+            mysites <-
+                login$get_user()$list_sharepoint_sites(filter = filter)
+            if (length(mysites) == 0)
+                stop("Site '", site_name, "' not found", call. = FALSE)
+            else if (length(mysites) > 1)
+                stop("Site name '", site_name, "' is not unique", call. = FALSE)
+            mysites[[1]]
+        }
+        else
+            login$get_sharepoint_site(site_url, site_id)
+    }
 
 #' @rdname client
 #' @export
-get_team <- function(team_name=NULL, team_id=NULL,
-                     tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                     app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                     scopes=c("Group.ReadWrite.All", "Directory.Read.All"),
+list_sharepoint_sites <-
+    function(tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+             scopes = c(
+                 "Group.ReadWrite.All",
+                 "Directory.Read.All",
+                 "Sites.ReadWrite.All",
+                 "Sites.Manage.All"
+             ),
+             ...)
+    {
+        app <- choose_app(app)
+        scopes <- set_default_scopes(scopes, app)
+        login <- do_login(tenant, app, scopes, ...)
+        
+        login$get_user()$list_sharepoint_sites()
+    }
+
+#' @rdname client
+#' @export
+get_team <- function(team_name = NULL,
+                     team_id = NULL,
+                     tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+                     app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+                     scopes = c("Group.ReadWrite.All", "Directory.Read.All"),
                      ...)
 {
-    assert_one_arg(team_name, team_id, msg="Supply exactly one of team name or ID")
+    assert_one_arg(team_name, team_id, msg = "Supply exactly one of team name or ID")
     app <- choose_app(app)
     scopes <- set_default_scopes(scopes, app)
     login <- do_login(tenant, app, scopes, ...)
-
-    if(!is.null(team_name))
+    
+    if (!is.null(team_name))
     {
         filter <- sprintf("displayName eq '%s'", team_name)
-        myteams <- login$get_user()$list_teams(filter=filter)
+        myteams <- login$get_user()$list_teams(filter = filter)
         # robustify against filter not working
-        wch <- which(sapply(myteams, function(obj) obj$properties$displayName == team_name))
-        if(length(wch) == 0)
-            stop("Team '", team_name, "' not found", call.=FALSE)
-        else if(length(wch) > 1)
-            stop("Team name '", team_name, "' is not unique", call.=FALSE)
+        wch <-
+            which(sapply(myteams, function(obj)
+                obj$properties$displayName == team_name))
+        if (length(wch) == 0)
+            stop("Team '", team_name, "' not found", call. = FALSE)
+        else if (length(wch) > 1)
+            stop("Team name '", team_name, "' is not unique", call. = FALSE)
         myteams[[wch]]
     }
-    else login$get_team(team_id)
+    else
+        login$get_team(team_id)
 }
 
 #' @rdname client
 #' @export
-list_teams <- function(tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                       app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                       scopes=c("Group.ReadWrite.All", "Directory.Read.All"),
-                       ...)
-{
-    app <- choose_app(app)
-    scopes <- set_default_scopes(scopes, app)
-    login <- do_login(tenant, app, scopes, ...)
-
-    login$get_user()$list_teams()
-}
+list_teams <-
+    function(tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+             scopes = c("Group.ReadWrite.All", "Directory.Read.All"),
+             ...)
+    {
+        app <- choose_app(app)
+        scopes <- set_default_scopes(scopes, app)
+        login <- do_login(tenant, app, scopes, ...)
+        
+        login$get_user()$list_teams()
+    }
 
 #' @rdname client
 #' @export
-get_personal_outlook <- function(app=.microsoft365r_app_id,
-                                 scopes=c("Mail.Send", "Mail.ReadWrite", "User.Read"),
+get_personal_outlook <- function(app = .microsoft365r_app_id,
+                                 scopes = c("Mail.Send", "Mail.ReadWrite", "User.Read"),
                                  ...)
 {
     do_login("consumers", app, scopes, ...)$get_user()$get_outlook()
@@ -186,26 +206,31 @@ get_personal_outlook <- function(app=.microsoft365r_app_id,
 
 #' @rdname client
 #' @export
-get_business_outlook <- function(tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                                 app=.microsoft365r_app_id,
-                                 shared_mbox_id=NULL, shared_mbox_name=NULL, shared_mbox_email=NULL,
-                                 scopes=c("User.Read", "Mail.Send", "Mail.ReadWrite"),
-                                 ...)
-{
-    if(!is.null(shared_mbox_id) || !is.null(shared_mbox_name) || !is.null(shared_mbox_email))
-        scopes <- c(scopes, "Mail.Send.Shared", "Mail.ReadWrite.Shared")
-
-    do_login(tenant, app, scopes, ...)$
-        get_user(user_id=shared_mbox_id, name=shared_mbox_name, email=shared_mbox_email)$
-        get_outlook()
-}
+get_business_outlook <-
+    function(tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = .microsoft365r_app_id,
+             shared_mbox_id = NULL,
+             shared_mbox_name = NULL,
+             shared_mbox_email = NULL,
+             scopes = c("User.Read", "Mail.Send", "Mail.ReadWrite"),
+             ...)
+    {
+        if (!is.null(shared_mbox_id) ||
+            !is.null(shared_mbox_name) || !is.null(shared_mbox_email))
+            scopes <-
+                c(scopes, "Mail.Send.Shared", "Mail.ReadWrite.Shared")
+        
+        do_login(tenant, app, scopes, ...)$get_user(user_id = shared_mbox_id,
+                                                    name = shared_mbox_name,
+                                                    email = shared_mbox_email)$get_outlook()
+    }
 
 #' @rdname client
 #' @export
 get_chat <- function(chat_id,
-                     tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                     app=.microsoft365r_app_id,
-                     scopes=c("User.Read", "Directory.Read.All", "Chat.ReadWrite"),
+                     tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+                     app = .microsoft365r_app_id,
+                     scopes = c("User.Read", "Directory.Read.All", "Chat.ReadWrite"),
                      ...)
 {
     do_login(tenant, app, scopes, ...)$get_user()$get_chat(chat_id)
@@ -214,13 +239,14 @@ get_chat <- function(chat_id,
 
 #' @rdname client
 #' @export
-list_chats <- function(tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                       app=.microsoft365r_app_id,
-                       scopes=c("User.Read", "Directory.Read.All", "Chat.ReadWrite"),
-                       ...)
-{
-    do_login(tenant, app, scopes, ...)$get_user()$list_chats()
-}
+list_chats <-
+    function(tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = .microsoft365r_app_id,
+             scopes = c("User.Read", "Directory.Read.All", "Chat.ReadWrite"),
+             ...)
+    {
+        do_login(tenant, app, scopes, ...)$get_user()$list_chats()
+    }
 
 
 .ms365_login_env <- new.env()
@@ -231,14 +257,20 @@ do_login <- function(tenant, app, scopes, ...)
     {
         as.character(openssl::md5(serialize(list(...), NULL)))
     }
-
+    
     login_id <- hash(tenant, app, scopes, ...)
     login <- .ms365_login_env[[login_id]]
-    if(is.null(login) || !inherits(login, "ms_graph"))
+    if (is.null(login) || !inherits(login, "ms_graph"))
     {
-        login <- try(get_graph_login(tenant, app=app, scopes=scopes, refresh=FALSE), silent=TRUE)
-        if(inherits(login, "try-error"))
-            login <- create_graph_login(tenant, app=app, scopes=scopes, ...)
+        login <-
+            try(get_graph_login(tenant,
+                                app = app,
+                                scopes = scopes,
+                                refresh = FALSE),
+                silent = TRUE)
+        if (inherits(login, "try-error"))
+            login <-
+                create_graph_login(tenant, app = app, scopes = scopes, ...)
         .ms365_login_env[[login_id]] <- login
     }
     login
@@ -247,28 +279,31 @@ do_login <- function(tenant, app, scopes, ...)
 
 choose_app <- function(app)
 {
-    if(is.null(app) || app == "")
+    if (is.null(app) || app == "")
     {
-        if(!is.null(getOption("microsoft365r_use_cli_app_id")))
+        if (!is.null(getOption("microsoft365r_use_cli_app_id")))
             .cli_microsoft365_app_id
-        else .microsoft365r_app_id
+        else
+            .microsoft365r_app_id
     }
-    else app
+    else
+        app
 }
 
 
-assert_one_arg <- function(..., msg=NULL)
+assert_one_arg <- function(..., msg = NULL)
 {
     arglst <- list(...)
     nulls <- sapply(arglst, is.null)
-    if(sum(!nulls) != 1)
-        stop(msg, call.=FALSE)
+    if (sum(!nulls) != 1)
+        stop(msg, call. = FALSE)
 }
 
 
 set_default_scopes <- function(scopes, app)
 {
-    if(app %in% c(.cli_microsoft365_app_id, get(".az_cli_app_id", getNamespace("AzureGraph"))))
+    if (app %in% c(.cli_microsoft365_app_id,
+                   get(".az_cli_app_id", getNamespace("AzureGraph"))))
         scopes <- ".default"
     scopes
 }

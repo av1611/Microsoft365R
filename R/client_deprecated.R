@@ -10,35 +10,47 @@
 #' @rdname Microsoft365R-deprecated
 #' @aliases client-deprecated
 #' @export
-personal_onedrive <- function(app=.microsoft365r_app_id,
-                              scopes=c("Files.ReadWrite.All", "User.Read"),
+personal_onedrive <- function(app = .microsoft365r_app_id,
+                              scopes = c("Files.ReadWrite.All", "User.Read"),
                               ...)
 {
     .Deprecated("get_personal_onedrive")
-    get_personal_onedrive(app=app, scopes=scopes, ...)
+    get_personal_onedrive(app = app, scopes = scopes, ...)
 }
 
 
 #' @rdname Microsoft365R-deprecated
 #' @export
-business_onedrive <- function(tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                              app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                              scopes=".default",
+business_onedrive <-
+    function(tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+             app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+             scopes = ".default",
+             ...)
+    {
+        .Deprecated("get_business_onedrive")
+        get_business_onedrive(tenant = tenant,
+                              app = app,
+                              scopes = scopes,
                               ...)
-{
-    .Deprecated("get_business_onedrive")
-    get_business_onedrive(tenant=tenant, app=app, scopes=scopes, ...)
-}
+    }
 
 
 #' @rdname Microsoft365R-deprecated
 #' @export
-sharepoint_site <- function(site_url=NULL, site_id=NULL,
-                            tenant=Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
-                            app=Sys.getenv("CLIMICROSOFT365_AADAPPID"),
-                            scopes=".default",
+sharepoint_site <- function(site_url = NULL,
+                            site_id = NULL,
+                            tenant = Sys.getenv("CLIMICROSOFT365_TENANT", "common"),
+                            app = Sys.getenv("CLIMICROSOFT365_AADAPPID"),
+                            scopes = ".default",
                             ...)
 {
     .Deprecated("get_sharepoint_site")
-    get_sharepoint_site(site_url=site_url, site_id=site_id, tenant=tenant, app=app, scopes=scopes, ...)
+    get_sharepoint_site(
+        site_url = site_url,
+        site_id = site_id,
+        tenant = tenant,
+        app = app,
+        scopes = scopes,
+        ...
+    )
 }

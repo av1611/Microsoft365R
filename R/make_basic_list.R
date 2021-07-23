@@ -12,9 +12,11 @@
 #' @export
 make_basic_list <- function(object, op, filter, n, ...)
 {
-    opts <- list(`$filter`=filter)
-    hdrs <- if(!is.null(filter)) httr::add_headers(consistencyLevel="eventual")
-    pager <- object$get_list_pager(object$do_operation(op, options=opts, hdrs), ...)
-    extract_list_values(pager, n)
+  opts <- list(`$filter` = filter)
+  hdrs <-
+    if (!is.null(filter))
+      httr::add_headers(consistencyLevel = "eventual")
+  pager <-
+    object$get_list_pager(object$do_operation(op, options = opts, hdrs), ...)
+  extract_list_values(pager, n)
 }
-

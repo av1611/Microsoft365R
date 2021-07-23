@@ -166,8 +166,11 @@ public=list(
         if(!is.null(id))
         {
             res <- self$do_operation(file.path("members", id))
-            ms_team_member$new(self$token, self$tenant, res,
-                parent_id=self$properties$id, parent_type="channel")
+            ms_team_member$new(self$token, 
+                               self$tenant, 
+                               res,
+                               parent_id=self$properties$id,
+                               parent_type="channel")
         }
         else
         {

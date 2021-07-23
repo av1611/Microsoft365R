@@ -44,32 +44,41 @@
 #' }
 #' @format An R6 object of class `ms_list_item`, inheriting from `ms_object`.
 #' @export
-ms_list_item <- R6::R6Class("ms_list_item", inherit=ms_object,
-
-public=list(
-
-    site_id=NULL,
-    list_id=NULL,
-
-    initialize=function(token, tenant=NULL, properties=NULL, site_id=NULL, list_id=NULL)
-    {
-        if(is.null(site_id) || is.null(list_id))
-            stop("Must supply parent site and list IDs", call.=FALSE)
-        self$type <- "list item"
-        self$site_id <- site_id
-        self$list_id <- list_id
-        private$api_type <- file.path("sites", self$site_id, "lists", self$list_id, "items")
-        super$initialize(token, tenant, properties)
-    },
-
-    print=function(...)
-    {
-        cat("<Sharepoint list item '", self$properties$fields$Title, "'>\n", sep="")
-        cat("  directory id:", self$properties$id, "\n")
-        cat("  web link:", self$properties$webUrl, "\n")
-        cat("---\n")
-        cat(format_public_methods(self))
-        invisible(self)
-    }
-))
-
+ms_list_item <- R6::R6Class(
+    "ms_list_item",
+    inherit = ms_object,
+    
+    public = list(
+        site_id = NULL,
+        list_id = NULL,
+        
+        initialize = function(token,
+                              tenant = NULL,
+                              properties = NULL,
+                              site_id = NULL,
+                              list_id = NULL)
+        {
+            if (is.null(site_id) || is.null(list_id))
+                stop("Must supply parent site and list IDs", call. = FALSE)
+            self$type <- "list item"
+            self$site_id <- site_id
+            self$list_id <- list_id
+            private$api_type <-
+                file.path("sites", self$site_id, "lists", self$list_id, "items")
+            super$initialize(token, tenant, properties)
+        },
+        
+        print = function(...)
+        {
+            cat("<Sharepoint list item '",
+                self$properties$fields$Title,
+                "'>\n",
+                sep = "")
+            cat("  directory id:", self$properties$id, "\n")
+            cat("  web link:", self$properties$webUrl, "\n")
+            cat("---\n")
+            cat(format_public_methods(self))
+            invisible(self)
+        }
+    )
+)

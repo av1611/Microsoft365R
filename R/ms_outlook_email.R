@@ -1,3 +1,4 @@
+
 #' Outlook mail message
 #'
 #' Class representing an Outlook mail message. The one class represents both sent and unsent (draft) emails.

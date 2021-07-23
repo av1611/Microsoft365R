@@ -27,7 +27,7 @@ outlb <- get_business_outlook()
 outl$list_emails()
 
 # create and send a new email
-outl$create_email("Hello from R", subject="Hello", to="bob@example.com")$send()
+outl$create_email("Hello from R", subject="Hello", to="alexej@vgroffice.org")$send()
 
 # list your mail folders
 outl$list_folders()
@@ -49,12 +49,15 @@ To write a new email, call the `create_email()` method as noted above; this retu
 ```r
 # create a draft email
 em <- outl$create_email("Hello from R", subject="Hello",
-    to="bob@example.com", cc="charlie@example.com")
+    to="alexej@vgroffice.org", cc="alexej.ashkenazi@gmail.com")
 
 # or: create a blank draft, then add details
 em <- outl$create_email()
+
 em$set_body("Hello from R")
+
 em$set_subject("Hello")
+
 em$set_recipients(to="bob@example.com", cc="charlie@example.com")
 
 # alternatively, use method chaining to achieve the same thing
@@ -62,7 +65,8 @@ em <- outl$
     create_email()$
     set_body("Hello from R")$
     set_subject("Hello")$
-    set_recipients(to="bob@example.com", cc="charlie@example.com")
+    set_recipients(to="alexej@vgroffice.org",
+    cc="alexej.ashkenazi@gmail.com")
 ```
 
 In the example above, the email has a plain text message body which is the default. To create an email in HTML format, set the `content_type` argument to "html".
@@ -85,17 +89,21 @@ Cheers,
 The blastula team"
 
 library(blastula)
+
 bl_em <- compose_email(
     body=md(bl_body),
     footer=md("sent via Microsoft365R")
 )
-em <- outl$create_email(bl_em, subject="Hello", to="bob@example.com")
+
+em <- outl$create_email(bl_em, subject="Hello", to="alexej@vgroffice.org", cc="alexej.ashkenazi@gmail.com")
+
 ```
 
 Once the message is created, you send it with its `send()` method. Sending an email will move it to the Sent Items folder.
 
 ```r
 em$send()
+
 ```
 
 ### Attachments

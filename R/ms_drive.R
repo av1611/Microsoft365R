@@ -113,164 +113,203 @@
 #' }
 #' @format An R6 object of class `ms_drive`, inheriting from `ms_object`.
 #' @export
-ms_drive <- R6::R6Class("ms_drive", inherit=ms_object,
-
-public=list(
-
-    initialize=function(token, tenant=NULL, properties=NULL)
-    {
-        self$type <- "drive"
-        private$api_type <- "drives"
-        super$initialize(token, tenant, properties)
-    },
-
-    list_items=function(path="/", ...)
-    {
-        private$get_root()$list_items(path, ...)
-    },
-
-    upload_file=function(src, dest, blocksize=32768000)
-    {
-        private$get_root()$upload(src, dest, blocksize)
-    },
-
-    create_folder=function(path)
-    {
-        private$get_root()$create_folder(path)
-    },
-
-    download_file=function(src, dest=basename(src), overwrite=FALSE)
-    {
-        self$get_item(src)$download(dest, overwrite=overwrite)
-    },
-
-    create_share_link=function(path, type=c("view", "edit", "embed"), expiry="7 days", password=NULL, scope=NULL)
-    {
-        type <- match.arg(type)
-        self$get_item(path)$get_share_link(type, expiry, password, scope)
-    },
-
-    open_item=function(path)
-    {
-        self$get_item(path)$open()
-    },
-
-    delete_item=function(path, confirm=TRUE, by_item=FALSE)
-    {
-        self$get_item(path)$delete(confirm=confirm, by_item=by_item)
-    },
-
-    get_item=function(path)
-    {
-        op <- if(path != "/")
+ms_drive <- R6::R6Class(
+    "ms_drive",
+    inherit = ms_object,
+    
+    public = list(
+        initialize = function(token,
+                              tenant = NULL,
+                              properties = NULL)
         {
-            path <- curl::curl_escape(gsub("^/|/$", "", path)) # remove any leading and trailing slashes
-            file.path("root:", path)
-        }
-        else "root"
-        ms_drive_item$new(self$token, self$tenant, self$do_operation(op))
-    },
-
-    get_item_properties=function(path)
-    {
-        self$get_item(path)$properties
-    },
-
-    set_item_properties=function(path, ...)
-    {
-        self$get_item(path)$update(...)
-    },
-
-    list_shared_items=function(info=c("partial", "items", "all"), allow_external=FALSE,
-                               filter=NULL, n=Inf, pagesize=1000)
-    {
-        info <- match.arg(info)
-        opts <- list(`$top`=pagesize)
-        if(allow_external)
-            opts$allowExternal <- "true"
-        if(!is.null(filter))
-            opts$`filter` <- filter
-        children <- self$do_operation("sharedWithMe", options=opts, simplify=TRUE)
-
-        # get file list as a data frame, or return the iterator immediately if n is NULL
-        df <- extract_list_values(self$get_list_pager(children), n)
-        if(is.null(n))
-            return(df)
-
-        if(is_empty(df))
-            df <- data.frame(name=character(), size=numeric(), isdir=logical(), remoteItem=I(list()))
-        else if(info != "items")
+            self$type <- "drive"
+            private$api_type <- "drives"
+            super$initialize(token, tenant, properties)
+        },
+        
+        list_items = function(path = "/", ...)
         {
-            df$isdir <- if(!is.null(df$folder))
-                !is.na(df$folder$childCount)
-            else rep(FALSE, nrow(df))
-        }
-
-        df$remoteItem <- lapply(seq_len(nrow(df)),
-            function(i) ms_drive_item$new(self$token, self$tenant, df$remoteItem[i, ]))
-
-        switch(info,
-            partial=df[c("name", "size", "isdir", "remoteItem")],
-            items=df$remoteItem,
-            all=
+            private$get_root()$list_items(path, ...)
+        },
+        
+        upload_file = function(src, dest, blocksize = 32768000)
+        {
+            private$get_root()$upload(src, dest, blocksize)
+        },
+        
+        create_folder = function(path)
+        {
+            private$get_root()$create_folder(path)
+        },
+        
+        download_file = function(src,
+                                 dest = basename(src),
+                                 overwrite = FALSE)
+        {
+            self$get_item(src)$download(dest, overwrite = overwrite)
+        },
+        
+        create_share_link = function(path,
+                                     type = c("view", "edit", "embed"),
+                                     expiry = "7 days",
+                                     password = NULL,
+                                     scope = NULL)
+        {
+            type <- match.arg(type)
+            self$get_item(path)$get_share_link(type, expiry, password, scope)
+        },
+        
+        open_item = function(path)
+        {
+            self$get_item(path)$open()
+        },
+        
+        delete_item = function(path,
+                               confirm = TRUE,
+                               by_item = FALSE)
+        {
+            self$get_item(path)$delete(confirm = confirm, by_item = by_item)
+        },
+        
+        get_item = function(path)
+        {
+            op <- if (path != "/")
             {
-                firstcols <- c("name", "size", "isdir", "remoteItem")
-                df[c(firstcols, setdiff(names(df), firstcols))]
+                path <-
+                    curl::curl_escape(gsub("^/|/$", "", path)) # remove any leading and trailing slashes
+                file.path("root:", path)
             }
-        )
-    },
-
-    print=function(...)
-    {
-        personal <- self$properties$driveType == "personal"
-        name <- if(personal)
-            paste0("<Personal OneDrive of ", self$properties$owner$user$displayName, ">\n")
-        else paste0("<Document library '", self$properties$name, "'>\n")
-        cat(name)
-        cat("  directory id:", self$properties$id, "\n")
-        if(!personal)
+            else
+                "root"
+            ms_drive_item$new(self$token, self$tenant, self$do_operation(op))
+        },
+        
+        get_item_properties = function(path)
         {
-            cat("  web link:", self$properties$webUrl, "\n")
-            cat("  description:", self$properties$description, "\n")
+            self$get_item(path)$properties
+        },
+        
+        set_item_properties = function(path, ...)
+        {
+            self$get_item(path)$update(...)
+        },
+        
+        list_shared_items = function(info = c("partial", "items", "all"),
+                                     allow_external = FALSE,
+                                     filter = NULL,
+                                     n = Inf,
+                                     pagesize = 1000)
+        {
+            info <- match.arg(info)
+            opts <- list(`$top` = pagesize)
+            if (allow_external)
+                opts$allowExternal <- "true"
+            if (!is.null(filter))
+                opts$`filter` <- filter
+            children <-
+                self$do_operation("sharedWithMe", options = opts, simplify = TRUE)
+            
+            # get file list as a data frame, or return the iterator immediately if n is NULL
+            df <- extract_list_values(self$get_list_pager(children), n)
+            if (is.null(n))
+                return(df)
+            
+            if (is_empty(df))
+                df <-
+                data.frame(
+                    name = character(),
+                    size = numeric(),
+                    isdir = logical(),
+                    remoteItem = I(list())
+                )
+            else if (info != "items")
+            {
+                df$isdir <- if (!is.null(df$folder))
+                    ! is.na(df$folder$childCount)
+                else
+                    rep(FALSE, nrow(df))
+            }
+            
+            df$remoteItem <- lapply(seq_len(nrow(df)),
+                                    function(i)
+                                        ms_drive_item$new(self$token, self$tenant, df$remoteItem[i,]))
+            
+            switch(
+                info,
+                partial = df[c("name", "size", "isdir", "remoteItem")],
+                items = df$remoteItem,
+                all =
+                    {
+                        firstcols <- c("name", "size", "isdir", "remoteItem")
+                        df[c(firstcols, setdiff(names(df), firstcols))]
+                    }
+            )
+        },
+        
+        print = function(...)
+        {
+            personal <- self$properties$driveType == "personal"
+            name <- if (personal)
+                paste0("<Personal OneDrive of ",
+                       self$properties$owner$user$displayName,
+                       ">\n")
+            else
+                paste0("<Document library '", self$properties$name, "'>\n")
+            cat(name)
+            cat("  directory id:", self$properties$id, "\n")
+            if (!personal)
+            {
+                cat("  web link:", self$properties$webUrl, "\n")
+                cat("  description:", self$properties$description, "\n")
+            }
+            cat("---\n")
+            cat(format_public_methods(self))
+            invisible(self)
         }
-        cat("---\n")
-        cat(format_public_methods(self))
-        invisible(self)
-    }
-),
-
-private=list(
-
-    root=NULL,
-
-    get_root=function()
-    {
-        if(is.null(private$root))
-            private$root <- self$get_item("/")
-        private$root
-    }
-))
+    ),
+    
+    private = list(
+        root = NULL,
+        
+        get_root = function()
+        {
+            if (is.null(private$root))
+                private$root <- self$get_item("/")
+            private$root
+        }
+    )
+)
 
 
 # aliases for convenience
-ms_drive$set("public", "list_files", overwrite=TRUE, ms_drive$public_methods$list_items)
+ms_drive$set("public",
+             "list_files",
+             overwrite = TRUE,
+             ms_drive$public_methods$list_items)
 
-ms_drive$set("public", "list_shared_files", overwrite=TRUE, ms_drive$public_methods$list_shared_items)
+ms_drive$set(
+    "public",
+    "list_shared_files",
+    overwrite = TRUE,
+    ms_drive$public_methods$list_shared_items
+)
 
 parse_upload_range <- function(response, blocksize)
 {
-    if(is_empty(response))
+    if (is_empty(response))
         return(NULL)
-
+    
     # Outlook and Sharepoint/OneDrive teams not talking to each other....
-    if(!is.null(response$NextExpectedRanges) && is.null(response$nextExpectedRanges))
+    if (!is.null(response$NextExpectedRanges) &&
+        is.null(response$nextExpectedRanges))
         response$nextExpectedRanges <- response$NextExpectedRanges
-
-    if(is.null(response$nextExpectedRanges))
+    
+    if (is.null(response$nextExpectedRanges))
         return(NULL)
-
-    x <- as.numeric(strsplit(response$nextExpectedRanges[[1]], "-", fixed=TRUE)[[1]])
-    if(length(x) == 1)
+    
+    x <-
+        as.numeric(strsplit(response$nextExpectedRanges[[1]], "-", fixed = TRUE)[[1]])
+    if (length(x) == 1)
         x[2] <- x[1] + blocksize - 1
     x
 }

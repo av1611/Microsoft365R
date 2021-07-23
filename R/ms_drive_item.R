@@ -103,248 +103,304 @@
 #' }
 #' @format An R6 object of class `ms_drive_item`, inheriting from `ms_object`.
 #' @export
-ms_drive_item <- R6::R6Class("ms_drive_item", inherit=ms_object,
-
-public=list(
-
-    initialize=function(token, tenant=NULL, properties=NULL)
-    {
-        self$type <- "drive item"
-        private$api_type <- file.path("drives", properties$parentReference$driveId, "items")
-        super$initialize(token, tenant, properties)
-    },
-
-    delete=function(confirm=TRUE, by_item=FALSE)
-    {
-        if(!by_item || !self$is_folder())
-            return(super$delete(confirm=confirm))
-
-        if (confirm && interactive())
+ms_drive_item <- R6::R6Class(
+    "ms_drive_item",
+    inherit = ms_object,
+    
+    public = list(
+        initialize = function(token,
+                              tenant = NULL,
+                              properties = NULL)
         {
-            msg <- sprintf("Do you really want to delete the %s '%s'?", self$type, self$properties$name)
-            if (!get_confirmation(msg, FALSE))
-                return(invisible(NULL))
-        }
-
-        children <- self$list_items()
-        dirs <- children$isdir
-        for(d in children$name[dirs])
-            self$get_item(d)$delete(confirm=FALSE, by_item=TRUE)
-
-        deletes <- lapply(children$name[!dirs], function(f)
+            self$type <- "drive item"
+            private$api_type <-
+                file.path("drives", properties$parentReference$driveId, "items")
+            super$initialize(token, tenant, properties)
+        },
+        
+        delete = function(confirm = TRUE, by_item = FALSE)
         {
-            path <- private$make_absolute_path(f)
-            graph_request$new(path, http_verb="DELETE")
-        })
-        # do in batches of 20
-        i <- length(deletes)
-        while(i > 0)
-        {
-            batch <- seq(from=max(1, i - 19), to=i)
-            call_batch_endpoint(self$token, deletes[batch])
-            i <- max(1, i - 19) - 1
-        }
-
-        super$delete(confirm=FALSE)
-    },
-
-    is_folder=function()
-    {
-        children <- self$properties$folder$childCount
-        !is.null(children) && !is.na(children)
-    },
-
-    open=function()
-    {
-        httr::BROWSE(self$properties$webUrl)
-    },
-
-    create_share_link=function(type=c("view", "edit", "embed"), expiry="7 days", password=NULL, scope=NULL)
-    {
-        type <- match.arg(type)
-        body <- list(type=type)
-        if(!is.null(expiry))
-        {
-            expdate <- seq(Sys.time(), by=expiry, len=2)[2]
-            expirationDateTime <- strftime(expdate, "%Y-%m-%dT%H:%M:%SZ", tz="GMT")
-        }
-        if(!is.null(password))
-            body$password <- password
-        if(!is.null(scope))
-            body$scope <- scope
-        res <- self$do_operation("createLink", body=body, http_verb="POST")
-        if(type == "embed")
-        {
-            res$link$type <- NULL
-            res$link
-        }
-        else res$link$webUrl
-    },
-
-    list_items=function(path="", info=c("partial", "name", "all"), full_names=FALSE, filter=NULL, n=Inf, pagesize=1000)
-    {
-        private$assert_is_folder()
-        if(path == "/")
-            path <- ""
-        info <- match.arg(info)
-        opts <- switch(info,
-            partial=list(`$select`="name,size,folder,id", `$top`=pagesize),
-            name=list(`$select`="name", `$top`=pagesize),
-            list(`$top`=pagesize)
-        )
-        if(!is.null(filter))
-            opts$`filter` <- filter
-
-        op <- sub("::", "", paste0(private$make_absolute_path(path), ":/children"))
-        children <- call_graph_endpoint(self$token, op, options=opts, simplify=TRUE)
-
-        # get file list as a data frame, or return the iterator immediately if n is NULL
-        df <- extract_list_values(self$get_list_pager(children), n)
-        if(is.null(n))
-            return(df)
-
-        if(is_empty(df))
-            df <- data.frame(name=character(), size=numeric(), isdir=logical(), id=character())
-        else if(info != "name")
-        {
-            df$isdir <- if(!is.null(df$folder))
-                !is.na(df$folder$childCount)
-            else rep(FALSE, nrow(df))
-        }
-
-        if(full_names)
-            df$name <- file.path(sub("^/", "", path), df$name)
-        switch(info,
-            partial=df[c("name", "size", "isdir", "id")],
-            name=df$name,
-            all=
+            if (!by_item || !self$is_folder())
+                return(super$delete(confirm = confirm))
+            
+            if (confirm && interactive())
             {
-                firstcols <- c("name", "size", "isdir", "id")
-                df[c(firstcols, setdiff(names(df), firstcols))]
+                msg <-
+                    sprintf("Do you really want to delete the %s '%s'?",
+                            self$type,
+                            self$properties$name)
+                if (!get_confirmation(msg, FALSE))
+                    return(invisible(NULL))
             }
-        )
-    },
-
-    get_item=function(path)
-    {
-        private$assert_is_folder()
-        op <- private$make_absolute_path(path)
-        ms_drive_item$new(self$token, self$tenant, call_graph_endpoint(self$token, op))
-    },
-
-    create_folder=function(path)
-    {
-        private$assert_is_folder()
-
-        # see https://stackoverflow.com/a/66686842/474349
-        op <- private$make_absolute_path(path)
-        body <- list(
-            folder=named_list(),
-            `@microsoft.graph.conflictBehavior`="fail"
-        )
-        res <- call_graph_endpoint(self$token, op, body=body, http_verb="PATCH")
-        invisible(ms_drive_item$new(self$token, self$tenant, res))
-    },
-
-    upload=function(src, dest=basename(src), blocksize=32768000)
-    {
-        private$assert_is_folder()
-        con <- file(src, open="rb")
-        on.exit(close(con))
-
-        op <- paste0(private$make_absolute_path(dest), ":/createUploadSession")
-        upload_dest <- call_graph_endpoint(self$token, op, http_verb="POST")$uploadUrl
-
-        size <- file.size(src)
-        next_blockstart <- 0
-        next_blockend <- size - 1
-        repeat
+            
+            children <- self$list_items()
+            dirs <- children$isdir
+            for (d in children$name[dirs])
+                self$get_item(d)$delete(confirm = FALSE, by_item = TRUE)
+            
+            deletes <- lapply(children$name[!dirs], function(f)
+            {
+                path <- private$make_absolute_path(f)
+                graph_request$new(path, http_verb = "DELETE")
+            })
+            # do in batches of 20
+            i <- length(deletes)
+            while (i > 0)
+            {
+                batch <- seq(from = max(1, i - 19), to = i)
+                call_batch_endpoint(self$token, deletes[batch])
+                i <- max(1, i - 19) - 1
+            }
+            
+            super$delete(confirm = FALSE)
+        },
+        
+        is_folder = function()
         {
-            next_blocksize <- min(next_blockend - next_blockstart + 1, blocksize)
-            seek(con, next_blockstart)
-            body <- readBin(con, "raw", next_blocksize)
-            thisblock <- length(body)
-            if(thisblock == 0)
-                break
-
-            headers <- httr::add_headers(
-                `Content-Length`=thisblock,
-                `Content-Range`=sprintf("bytes %.0f-%.0f/%.0f",
-                    next_blockstart, next_blockstart + thisblock - 1, size)
+            children <- self$properties$folder$childCount
+            ! is.null(children) && !is.na(children)
+        },
+        
+        open = function()
+        {
+            httr::BROWSE(self$properties$webUrl)
+        },
+        
+        create_share_link = function(type = c("view", "edit", "embed"),
+                                     expiry = "7 days",
+                                     password = NULL,
+                                     scope = NULL)
+        {
+            type <- match.arg(type)
+            body <- list(type = type)
+            if (!is.null(expiry))
+            {
+                expdate <- seq(Sys.time(), by = expiry, len = 2)[2]
+                expirationDateTime <-
+                    strftime(expdate, "%Y-%m-%dT%H:%M:%SZ", tz = "GMT")
+            }
+            if (!is.null(password))
+                body$password <- password
+            if (!is.null(scope))
+                body$scope <- scope
+            res <-
+                self$do_operation("createLink", body = body, http_verb = "POST")
+            if (type == "embed")
+            {
+                res$link$type <- NULL
+                res$link
+            }
+            else
+                res$link$webUrl
+        },
+        
+        list_items = function(path = "",
+                              info = c("partial", "name", "all"),
+                              full_names = FALSE,
+                              filter = NULL,
+                              n = Inf,
+                              pagesize = 1000)
+        {
+            private$assert_is_folder()
+            if (path == "/")
+                path <- ""
+            info <- match.arg(info)
+            opts <- switch(
+                info,
+                partial = list(`$select` = "name,size,folder,id", `$top` = pagesize),
+                name = list(`$select` = "name", `$top` = pagesize),
+                list(`$top` = pagesize)
             )
-            res <- httr::PUT(upload_dest, headers, body=body)
-            httr::stop_for_status(res)
-
-            next_block <- parse_upload_range(httr::content(res), blocksize)
-            if(is.null(next_block))
-                break
-            next_blockstart <- next_block[1]
-            next_blockend <- next_block[2]
-        }
-        invisible(ms_drive_item$new(self$token, self$tenant, httr::content(res)))
-    },
-
-    download=function(dest=self$properties$name, overwrite=FALSE)
-    {
-        private$assert_is_file()
-        res <- self$do_operation("content", config=httr::write_disk(dest, overwrite=overwrite),
-                                 http_status_handler="pass")
-        if(httr::status_code(res) >= 300)
+            if (!is.null(filter))
+                opts$`filter` <- filter
+            
+            op <-
+                sub("::",
+                    "",
+                    paste0(private$make_absolute_path(path), ":/children"))
+            children <-
+                call_graph_endpoint(self$token, op, options = opts, simplify = TRUE)
+            
+            # get file list as a data frame, or return the iterator immediately if n is NULL
+            df <- extract_list_values(self$get_list_pager(children), n)
+            if (is.null(n))
+                return(df)
+            
+            if (is_empty(df))
+                df <-
+                data.frame(
+                    name = character(),
+                    size = numeric(),
+                    isdir = logical(),
+                    id = character()
+                )
+            else if (info != "name")
+            {
+                df$isdir <- if (!is.null(df$folder))
+                    ! is.na(df$folder$childCount)
+                else
+                    rep(FALSE, nrow(df))
+            }
+            
+            if (full_names)
+                df$name <- file.path(sub("^/", "", path), df$name)
+            switch(info,
+                   partial = df[c("name", "size", "isdir", "id")],
+                   name = df$name,
+                   all =
+                       {
+                           firstcols <- c("name", "size", "isdir", "id")
+                           df[c(firstcols, setdiff(names(df), firstcols))]
+                       })
+        },
+        
+        get_item = function(path)
         {
-            on.exit(file.remove(dest))
-            httr::stop_for_status(res, paste0("complete operation. Message:\n",
-                sub("\\.$", "", error_message(httr::content(res)))))
-        }
-        invisible(NULL)
-    },
-
-    print=function(...)
-    {
-        file_or_dir <- if(self$is_folder()) "file folder" else "file"
-        cat("<Drive item '", self$properties$name, "'>\n", sep="")
-        cat("  directory id:", self$properties$id, "\n")
-        cat("  web link:", self$properties$webUrl, "\n")
-        cat("  type:", file_or_dir, "\n")
-        cat("---\n")
-        cat(format_public_methods(self))
-        invisible(self)
-    }
-),
-
-private=list(
-
-    make_absolute_path=function(dest)
-    {
-        if(dest == ".")
-            dest <- ""
-        parent <- self$properties$parentReference
-        name <- self$properties$name
-        op <- if(name == "root")
-            file.path("drives", parent$driveId, "root:")
-        else
+            private$assert_is_folder()
+            op <- private$make_absolute_path(path)
+            ms_drive_item$new(self$token,
+                              self$tenant,
+                              call_graph_endpoint(self$token, op))
+        },
+        
+        create_folder = function(path)
         {
-            # have to infer the parent path if we got this item as a Teams channel folder
-            # in this case, assume the parent is the root folder
-            if(is.null(parent$path))
-                parent$path <- sprintf("/drives/%s/root:", parent$driveId)
-            file.path(parent$path, name)
+            private$assert_is_folder()
+            
+            # see https://stackoverflow.com/a/66686842/474349
+            op <- private$make_absolute_path(path)
+            body <- list(folder = named_list(),
+                         `@microsoft.graph.conflictBehavior` = "fail")
+            res <-
+                call_graph_endpoint(self$token, op, body = body, http_verb = "PATCH")
+            invisible(ms_drive_item$new(self$token, self$tenant, res))
+        },
+        
+        upload = function(src,
+                          dest = basename(src),
+                          blocksize = 32768000)
+        {
+            private$assert_is_folder()
+            con <- file(src, open = "rb")
+            on.exit(close(con))
+            
+            op <-
+                paste0(private$make_absolute_path(dest),
+                       ":/createUploadSession")
+            upload_dest <-
+                call_graph_endpoint(self$token, op, http_verb = "POST")$uploadUrl
+            
+            size <- file.size(src)
+            next_blockstart <- 0
+            next_blockend <- size - 1
+            repeat {
+                next_blocksize <-
+                    min(next_blockend - next_blockstart + 1, blocksize)
+                seek(con, next_blockstart)
+                body <- readBin(con, "raw", next_blocksize)
+                thisblock <- length(body)
+                if (thisblock == 0)
+                    break
+                
+                headers <- httr::add_headers(
+                    `Content-Length` = thisblock,
+                    `Content-Range` = sprintf(
+                        "bytes %.0f-%.0f/%.0f",
+                        next_blockstart,
+                        next_blockstart + thisblock - 1,
+                        size
+                    )
+                )
+                res <- httr::PUT(upload_dest, headers, body = body)
+                httr::stop_for_status(res)
+                
+                next_block <-
+                    parse_upload_range(httr::content(res), blocksize)
+                if (is.null(next_block))
+                    break
+                next_blockstart <- next_block[1]
+                next_blockend <- next_block[2]
+            }
+            invisible(ms_drive_item$new(self$token, self$tenant, httr::content(res)))
+        },
+        
+        download = function(dest = self$properties$name,
+                            overwrite = FALSE)
+        {
+            private$assert_is_file()
+            res <-
+                self$do_operation(
+                    "content",
+                    config = httr::write_disk(dest, overwrite = overwrite),
+                    http_status_handler = "pass"
+                )
+            if (httr::status_code(res) >= 300)
+            {
+                on.exit(file.remove(dest))
+                httr::stop_for_status(res, paste0(
+                    "complete operation. Message:\n",
+                    sub("\\.$", "", error_message(httr::content(res)))
+                ))
+            }
+            invisible(NULL)
+        },
+        
+        print = function(...)
+        {
+            file_or_dir <- if (self$is_folder())
+                "file folder"
+            else
+                "file"
+            cat("<Drive item '", self$properties$name, "'>\n", sep = "")
+            cat("  directory id:", self$properties$id, "\n")
+            cat("  web link:", self$properties$webUrl, "\n")
+            cat("  type:", file_or_dir, "\n")
+            cat("---\n")
+            cat(format_public_methods(self))
+            invisible(self)
         }
-        utils::URLencode(enc2utf8(sub("/$", "", file.path(op, dest))))
-    },
-
-    assert_is_folder=function()
-    {
-        if(!self$is_folder())
-            stop("This method is only applicable for a folder item", call.=FALSE)
-    },
-
-    assert_is_file=function()
-    {
-        if(self$is_folder())
-            stop("This method is only applicable for a file item", call.=FALSE)
-    }
-))
+    ),
+    
+    private = list(
+        make_absolute_path = function(dest)
+        {
+            if (dest == ".")
+                dest <- ""
+            parent <- self$properties$parentReference
+            name <- self$properties$name
+            op <- if (name == "root")
+                file.path("drives", parent$driveId, "root:")
+            else
+            {
+                # have to infer the parent path if we got this item as a Teams channel folder
+                # in this case, assume the parent is the root folder
+                if (is.null(parent$path))
+                    parent$path <-
+                        sprintf("/drives/%s/root:", parent$driveId)
+                file.path(parent$path, name)
+            }
+            utils::URLencode(enc2utf8(sub("/$", "", file.path(op, dest))))
+        },
+        
+        assert_is_folder = function()
+        {
+            if (!self$is_folder())
+                stop("This method is only applicable for a folder item", call. =
+                         FALSE)
+        },
+        
+        assert_is_file = function()
+        {
+            if (self$is_folder())
+                stop("This method is only applicable for a file item", call. =
+                         FALSE)
+        }
+    )
+)
 
 
 # alias for convenience
-ms_drive_item$set("public", "list_files", overwrite=TRUE, ms_drive_item$public_methods$list_items)
+ms_drive_item$set("public",
+                  "list_files",
+                  overwrite = TRUE,
+                  ms_drive_item$public_methods$list_items)
